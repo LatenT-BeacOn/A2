@@ -35,18 +35,11 @@ The **Vehicle Rental System** simplifies rental operations by allowing admins to
 ---
 
 ##  Technology Stack
-
-| Category             |  Technologies |
-
-| **Language**         | TypeScript |
-| **Runtime**          | Node.js |
-| **Framework**        | Express.js |
-| **Database**         | PostgreSQL |
-| **Authentication**   | JWT (jsonwebtoken) |
-| **Security**         | bcrypt (password hashing) |
-| **ORM / DB Access**  | pg / PostgreSQL client |
-| **Environment Config** | dotenv |
-| **Deployment**       | Vercel |
+Backend: Node.js + TypeScript
+Framework: Express.js
+Database: PostgreSQL
+Authentication: JWT (jsonwebtoken)
+Password Security: bcrypt
 
 ---
 
