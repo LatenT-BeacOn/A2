@@ -63,29 +63,36 @@ const getBookings = async (req: Request, res: Response) => {
 
 // updatebooking 
 
- const updateBooking = async (req: Request, res: Response) => {
+const updateBooking = async (req: Request, res: Response) => {
   try {
     const requester = req.user;
     const { bookingId } = req.params;
 
+    if (!requester) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
     if (!bookingId) {
-      return res.status(400).json({ success: false, message: "Booking ID is required" });
+      return res.status(400).json({
+        success: false,
+        message: "Booking ID is required",
+      });
     }
 
     const result = await bookingService.updateBooking(requester, bookingId);
 
-    res.status(200).json({
-      success: true,
-      message: result.message,
-    });
+
+    return res.status(200).json(result);
   } catch (err: any) {
-    res.status(err.statusCode || 500).json({
+    return res.status(err.statusCode || 500).json({
       success: false,
       message: err.message || "Server error",
     });
   }
 };
-
 
 
 

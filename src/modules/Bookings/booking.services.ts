@@ -117,10 +117,13 @@ const getBookingsService = async (requester: any) => {
 
 // services/BookingService.ts
 
- const updateBooking = async (requester: any, bookingId: string) => {
-
+const updateBooking = async (requester: any, bookingId: string) => {
   // Check if booking exists
-  const bookingResult = await pool.query(`SELECT * FROM bookings WHERE id=$1`, [bookingId]);
+  const bookingResult = await pool.query(
+    `SELECT * FROM bookings WHERE id=$1`,
+    [bookingId]
+  );
+
   if (bookingResult.rows.length === 0) {
     const err = new Error("Booking not found");
     (err as any).statusCode = 404;
@@ -129,9 +132,8 @@ const getBookingsService = async (requester: any) => {
 
   const booking = bookingResult.rows[0];
 
-  //Role-based logic
+  // ================= CUSTOMER → CANCEL =================
   if (requester.role === "customer") {
-    // Customer can cancel only if not started yet
     const now = new Date();
     const startDate = new Date(booking.rent_start_date);
 
@@ -153,35 +155,69 @@ const getBookingsService = async (requester: any) => {
       throw err;
     }
 
-    // Cancel booking
-    await pool.query(`UPDATE bookings SET status='cancelled' WHERE id=$1`, [bookingId]);
-    await pool.query(`UPDATE vehicles SET availability_status='available' WHERE id=$1`, [booking.vehicle_id]);
+    // Update booking
+    const updatedBooking = await pool.query(
+      `UPDATE bookings
+       SET status='cancelled'
+       WHERE id=$1
+       RETURNING id, customer_id, vehicle_id, rent_start_date, rent_end_date, total_price, status`,
+      [bookingId]
+    );
 
-    return { message: "Booking cancelled successfully" };
+    // Update vehicle availability
+    await pool.query(
+      `UPDATE vehicles
+       SET availability_status='available'
+       WHERE id=$1`,
+      [booking.vehicle_id]
+    );
+
+    return {
+      success: true,
+      message: "Booking cancelled successfully",
+      data: updatedBooking.rows[0],
+    };
   }
 
-  //Admin can mark as returned
-  else if (requester.role === "admin") {
+  // ================= ADMIN → RETURN =================
+  if (requester.role === "admin") {
     if (booking.status !== "active") {
       const err = new Error("Booking is not active or already returned");
       (err as any).statusCode = 400;
       throw err;
     }
 
-    await pool.query(`UPDATE bookings SET status='returned' WHERE id=$1`, [bookingId]);
-    await pool.query(`UPDATE vehicles SET availability_status='available' WHERE id=$1`, [booking.vehicle_id]);
+    const updatedBooking = await pool.query(
+      `UPDATE bookings
+       SET status='returned'
+       WHERE id=$1
+       RETURNING id, customer_id, vehicle_id, rent_start_date, rent_end_date, total_price, status`,
+      [bookingId]
+    );
 
-    return { message: "Booking marked as returned successfully" };
+    const updatedVehicle = await pool.query(
+      `UPDATE vehicles
+       SET availability_status='available'
+       WHERE id=$1
+       RETURNING availability_status`,
+      [booking.vehicle_id]
+    );
+
+    return {
+      success: true,
+      message: "Booking marked as returned. Vehicle is now available",
+      data: {
+        ...updatedBooking.rows[0],
+        vehicle: updatedVehicle.rows[0],
+      },
+    };
   }
 
-  // Otherwise unauthorized
-  else {
-    const err = new Error("Unauthorized action");
-    (err as any).statusCode = 403;
-    throw err;
-  }
+  // ================= UNAUTHORIZED =================
+  const err = new Error("Unauthorized action");
+  (err as any).statusCode = 403;
+  throw err;
 };
-
 
 
 
